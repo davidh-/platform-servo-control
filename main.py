@@ -13,8 +13,8 @@ pwm.set_mode(servoPIN2, pigpio.OUTPUT)
 
 
 # Initialize PWM on both pins with a frequency of 330Hz
-pwm.set_PWM_frequency(servoPIN1, 100)
-pwm.set_PWM_frequency(servoPIN2, 100)
+pwm.set_PWM_frequency(servoPIN1, 330)
+pwm.set_PWM_frequency(servoPIN2, 330)
 
 
 dc1 = 1500
@@ -27,13 +27,13 @@ pwm.set_servo_pulsewidth(servoPIN2, dc2)
 def on_press(key):
     global dc1
     global dc2
-    step = 100
+    step = 50
     try: 
-        if key == keyboard.Key.down:
+        if key == keyboard.Key.up:
             dc1 = min(dc1 + step, 2500)
             pwm.set_servo_pulsewidth(servoPIN1, dc1)
             print(dc1)
-        elif key == keyboard.Key.up:
+        elif key == keyboard.Key.down:
             dc1 = max(dc1 - step, 500)
             pwm.set_servo_pulsewidth(servoPIN1, dc1)
             print(dc1)
@@ -55,7 +55,7 @@ listener.start()
 try:
     while True:
         # Your program continues to do other stuff here
-        time.sleep(0.1)
+        time.sleep(0.0000001)
 
 except KeyboardInterrupt:
     # User pressed CTRL+C - cleanup GPIO and stop the program
