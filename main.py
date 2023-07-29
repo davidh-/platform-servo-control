@@ -20,9 +20,21 @@ tick_high = None
 duty_cycle = None
 duty_scale = 1000
 
+unitsFC = 360
+dcMin = 29
+dcMax = 971
+theta = None
+
+q2min = 90
+q3max = 270
+turns = 0
+thetaP = None
+angle = None
+oldDiff
+
 #calculate the duty cycle
 def cbf(pin, level, tick):
-    global tick_high, duty_cycle
+    global tick_high, duty_cycle, turns, thetaP, theta, angle
     # print(pin, level, tick)
     #change to low (a falling edge)
     if level == 0:
@@ -37,11 +49,44 @@ def cbf(pin, level, tick):
             #Tested: This is handled by the tickDiff function internally, if t1 (earlier tick)
             #is smaller than t2 (later tick), which could happen every 72 min. The result will
             #not be a negative value, the real difference will be properly calculated.
-            print("about to set duty_cycle")
-            print(duty_scale, tick_high, period)
-            duty_cycle = duty_scale*pigpio.tickDiff(tick_high, tick)/period
-            print("duty cycle", duty_cycle)
+            # print("about to set duty_cycle")
+            print(duty_scale, tick_high, tick, tick-tick_high, period)
+            diff = pigpio.tickDiff(tick_high, tick)
+            # if (diff > 1000)
+            duty_cycle = duty_scale*diff/period
+            # print("duty cycle", duty_cycle)
+            print("diff", diff)
+
+            thetaP = theta
+            theta = (unitsFC - 1) - ((duty_cycle - dcMin) * unitsFC) / (dcMax - dcMin + 1);
+            print("theta", theta, "duty_cycle", duty_cycle)
+            # In case the pulse measurements are a little too large or small, 
+            # let’s clamp the angle in the valid range.
+            if theta < 0:
+                theta = 0
+                # print("new_theta", theta)
+            elif theta > (unitsFC - 1):
+                theta = unitsFC - 1
+                # print("new_theta", theta)
+            exit_sig = False
+            # print("theta", theta, "q2min", q2min, "thetaP", thetaP, "q3max", q3max)
+            if (theta < q2min) and (thetaP > q3max): # If 4th to 1st quadrant
+                turns += 1  # Increment turns count
+                exit_sig = True
+            elif (thetaP < q2min) and (theta > q3max): # If in 1st to 4th quadrant
+                turns -= 1 # Decrement turns count
+                exit_sig = True
+            print("turns", turns)
+
+            if turns >= 0:
+                angle = (turns * unitsFC) + theta
+            elif turns < 0:
+                angle = ((turns + 1) * unitsFC) - (unitsFC - theta)
+            print("angle", angle)
+            # if exit_sig:
+                # exit()
         except Exception:
+            print("error")
             pass
 
     #change to high (a rising edge)
@@ -58,7 +103,7 @@ cb = gpio.callback(positionCTRL, pigpio.EITHER_EDGE, cbf)
 
 # Initialize PWM on both pins with a frequency of 330Hz
 gpio.set_PWM_frequency(servoPIN1, 330)
-gpio.set_PWM_frequency(servoPIN2, 330)
+gpio.set_PWM_frequency(servoPIN2, 50)
 
 
 dc1 = 1500
@@ -87,12 +132,10 @@ def on_press(key):
             dc2 = min(dc2 + step, 2500)
             gpio.set_servo_pulsewidth(servoPIN2, dc2)
             print(dc2)
-            # print(duty_cycle)
         elif key == keyboard.Key.right:
             dc2 = max(dc2 - step, 500)
             gpio.set_servo_pulsewidth(servoPIN2, dc2)
             print(dc2)
-            # print(duty_cycle)
     except AttributeError:
         pass
 
