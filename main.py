@@ -86,7 +86,7 @@ def cbf(pin, level, tick):
                 angle = (turns * unitsFC) + theta
             elif turns < 0:
                 angle = ((turns + 1) * unitsFC) - (unitsFC - theta)
-            print("theta", round(theta, 2), "turns", turns, "angle", round(angle, 2))
+            # print("theta", round(theta, 2), "turns", turns, "angle", round(angle, 2))
 
 
         except Exception:
@@ -112,6 +112,7 @@ gpio.set_PWM_frequency(servoPIN2, 50)
 
 dc1 = 1500
 dc2 = 1500
+dc2_angle = 0
 
 gpio.set_servo_pulsewidth(servoPIN1, dc1)
 gpio.set_servo_pulsewidth(servoPIN2, dc2)
@@ -124,7 +125,7 @@ targetAngle = None
 
 
 def goToAngle(targetAngle):
-    Kp = 1
+    Kp = 4
     offset = None
 
     while (True):
@@ -149,16 +150,17 @@ def goToAngle(targetAngle):
         print("output + offset", newPW)
 
         gpio.set_servo_pulsewidth(servoPIN2, dc2 + newPW)
-        time.sleep(20/1000)
+        time.sleep(10/1000)
         # Exit the loop when the error is close to zero (desired angle reached)
-        if abs(errorAngle) < 10:
+        if abs(errorAngle) < 1:
             gpio.set_servo_pulsewidth(servoPIN2, dc2)
             break
     # print("targetAngle", targetAngle, "confirmed")
 
 def on_press(key):
-    global dc1, dc2, targetAngle
+    global dc1, dc2, targetAngle, dc2_angle
     step = 50
+    step_angle = 5
     try: 
         if isinstance(key, keyboard.KeyCode):
             # Capture numerical keys to build the targetAngle value
@@ -191,12 +193,16 @@ def on_press(key):
             gpio.set_servo_pulsewidth(servoPIN1, dc1)
             print(dc1)
         elif key == keyboard.Key.left:
-            dc2 = min(dc2 + step, pan_max_pw)
-            gpio.set_servo_pulsewidth(servoPIN2, dc2)
+            dc2_angle = min(dc2_angle + step_angle, 359)
+            goToAngle(dc2_angle)
+            # dc2 = min(dc2 + step, pan_max_pw)
+            # gpio.set_servo_pulsewidth(servoPIN2, dc2)
             print(dc2)
         elif key == keyboard.Key.right:
-            dc2 = max(dc2 - step, pan_min_pw)
-            gpio.set_servo_pulsewidth(servoPIN2, dc2)
+            dc2_angle = max(dc2_angle - step_angle, 0)
+            goToAngle(dc2_angle)
+            # dc2 = max(dc2 - step, pan_min_pw)
+            # gpio.set_servo_pulsewidth(servoPIN2, dc2)
             print(dc2)
     except AttributeError:
         print("keyboard error")
