@@ -90,7 +90,7 @@ def cbf(pin, level, tick):
 
 
         except Exception:
-            print("error")
+            print("math error")
             pass
 
     #change to high (a rising edge)
@@ -120,12 +120,69 @@ gpio.set_servo_pulsewidth(servoPIN2, dc2)
 pan_max_pw = 1720
 pan_min_pw = 1280
 
+targetAngle = None
+
+
+def goToAngle(targetAngle):
+    Kp = 1
+    offset = None
+
+    while (True):
+        errorAngle = targetAngle - angle;
+        print("errorAngle", errorAngle)
+
+        output = errorAngle * Kp;
+
+        if output > 200:
+            output = 200
+        if output < -200: 
+            output = -200
+
+        if errorAngle > 0:
+            offset = 30
+        elif errorAngle < 0:
+            offset = -30
+        else:
+            offset = 0
+
+        newPW = output + offset
+        print("output + offset", newPW)
+
+        gpio.set_servo_pulsewidth(servoPIN2, dc2 + newPW)
+        time.sleep(20/1000)
+        # Exit the loop when the error is close to zero (desired angle reached)
+        if abs(errorAngle) < 10:
+            gpio.set_servo_pulsewidth(servoPIN2, dc2)
+            break
+    # print("targetAngle", targetAngle, "confirmed")
+
 def on_press(key):
-    global dc1
-    global dc2
+    global dc1, dc2, targetAngle
     step = 50
     try: 
-        if key == keyboard.Key.up:
+        if isinstance(key, keyboard.KeyCode):
+            # Capture numerical keys to build the targetAngle value
+            try:
+                num = int(key.char)
+                if targetAngle is None:
+                    targetAngle = num
+                else:
+                    targetAngle = targetAngle * 10 + num
+                print(f"\rAngle entered: {targetAngle}", end='', flush=True)  # Use \r to overwrite the current line
+            except ValueError:
+                pass
+        elif key == keyboard.Key.enter:  # Handle the Enter key separately
+            # When Enter key is pressed, check if the targetAngle is set and in valid range (0-359)
+            # print(targetAngle)
+            if targetAngle is not None and 0 <= targetAngle <= 359:
+                # Perform your actions based on the targetAngle value
+                goToAngle(targetAngle)
+                # Reset the targetAngle variable for the next input
+                targetAngle = None
+            else:
+                print("Invalid degree. Please enter a value between 0 and 359.")
+                targetAngle = None
+        elif key == keyboard.Key.up:
             dc1 = min(dc1 + step, 2500)
             gpio.set_servo_pulsewidth(servoPIN1, dc1)
             print(dc1)
@@ -142,6 +199,7 @@ def on_press(key):
             gpio.set_servo_pulsewidth(servoPIN2, dc2)
             print(dc2)
     except AttributeError:
+        print("keyboard error")
         pass
 
 listener = keyboard.Listener(
