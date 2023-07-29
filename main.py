@@ -30,11 +30,13 @@ q3max = 270
 turns = 0
 thetaP = None
 angle = None
-oldDiff
+diff = None
+oldDiff = None
+
 
 #calculate the duty cycle
 def cbf(pin, level, tick):
-    global tick_high, duty_cycle, turns, thetaP, theta, angle
+    global tick_high, duty_cycle, turns, thetaP, theta, angle, diff, oldDiff
     # print(pin, level, tick)
     #change to low (a falling edge)
     if level == 0:
@@ -50,16 +52,18 @@ def cbf(pin, level, tick):
             #is smaller than t2 (later tick), which could happen every 72 min. The result will
             #not be a negative value, the real difference will be properly calculated.
             # print("about to set duty_cycle")
-            print(duty_scale, tick_high, tick, tick-tick_high, period)
+            # print(duty_scale, tick_high, tick, tick-tick_high, period)
+            oldDiff = diff
             diff = pigpio.tickDiff(tick_high, tick)
-            # if (diff > 1000)
+            if abs(oldDiff - diff) > 100:
+                return
             duty_cycle = duty_scale*diff/period
             # print("duty cycle", duty_cycle)
-            print("diff", diff)
+            # print("diff", diff, "oldDiff", oldDiff)
 
             thetaP = theta
             theta = (unitsFC - 1) - ((duty_cycle - dcMin) * unitsFC) / (dcMax - dcMin + 1);
-            print("theta", theta, "duty_cycle", duty_cycle)
+            # print("theta", theta, "duty_cycle", duty_cycle)
             # In case the pulse measurements are a little too large or small, 
             # let’s clamp the angle in the valid range.
             if theta < 0:
@@ -76,15 +80,15 @@ def cbf(pin, level, tick):
             elif (thetaP < q2min) and (theta > q3max): # If in 1st to 4th quadrant
                 turns -= 1 # Decrement turns count
                 exit_sig = True
-            print("turns", turns)
+            
 
             if turns >= 0:
                 angle = (turns * unitsFC) + theta
             elif turns < 0:
                 angle = ((turns + 1) * unitsFC) - (unitsFC - theta)
-            print("angle", angle)
-            # if exit_sig:
-                # exit()
+            print("theta", round(theta, 2), "turns", turns, "angle", round(angle, 2))
+
+
         except Exception:
             print("error")
             pass
@@ -113,7 +117,8 @@ gpio.set_servo_pulsewidth(servoPIN1, dc1)
 gpio.set_servo_pulsewidth(servoPIN2, dc2)
 
 
-
+pan_max_pw = 1720
+pan_min_pw = 1280
 
 def on_press(key):
     global dc1
@@ -129,11 +134,11 @@ def on_press(key):
             gpio.set_servo_pulsewidth(servoPIN1, dc1)
             print(dc1)
         elif key == keyboard.Key.left:
-            dc2 = min(dc2 + step, 2500)
+            dc2 = min(dc2 + step, pan_max_pw)
             gpio.set_servo_pulsewidth(servoPIN2, dc2)
             print(dc2)
         elif key == keyboard.Key.right:
-            dc2 = max(dc2 - step, 500)
+            dc2 = max(dc2 - step, pan_min_pw)
             gpio.set_servo_pulsewidth(servoPIN2, dc2)
             print(dc2)
     except AttributeError:
