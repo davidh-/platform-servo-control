@@ -33,10 +33,12 @@ angle = None
 diff = None
 oldDiff = None
 
+dc2_angle = 0
+
 
 #calculate the duty cycle
 def cbf(pin, level, tick):
-    global tick_high, duty_cycle, turns, thetaP, theta, angle, diff, oldDiff
+    global tick_high, duty_cycle, turns, thetaP, theta, angle, diff, oldDiff, dc2_angle
     # print(pin, level, tick)
     #change to low (a falling edge)
     if level == 0:
@@ -72,6 +74,8 @@ def cbf(pin, level, tick):
             elif theta > (unitsFC - 1):
                 theta = unitsFC - 1
                 # print("new_theta", theta)
+            dc2_angle = theta
+
             exit_sig = False
             # print("theta", theta, "q2min", q2min, "thetaP", thetaP, "q3max", q3max)
             if (theta < q2min) and (thetaP > q3max): # If 4th to 1st quadrant
@@ -112,7 +116,7 @@ gpio.set_PWM_frequency(servoPIN2, 50)
 
 dc1 = 1500
 dc2 = 1500
-dc2_angle = 0
+
 
 gpio.set_servo_pulsewidth(servoPIN1, dc1)
 gpio.set_servo_pulsewidth(servoPIN2, dc2)
@@ -125,12 +129,13 @@ targetAngle = None
 
 
 def goToAngle(targetAngle):
-    Kp = 4
+    Kp = 2
     offset = None
-
+    timeout = 0
+    boost = 25
     while (True):
         errorAngle = targetAngle - angle;
-        print("errorAngle", errorAngle)
+        # print("errorAngle", errorAngle)
 
         output = errorAngle * Kp;
 
@@ -147,10 +152,26 @@ def goToAngle(targetAngle):
             offset = 0
 
         newPW = output + offset
-        print("output + offset", newPW)
+        # print("output + offset", newPW)
+        timeout += 1
+        if timeout > 1000:
+            print("boost")
+            boost = 50
+            if errorAngle > 0:
+                newPW += boost
+            elif errorAngle < 0:
+                newPW -= boost
+            # if timeout > 5000:
+            #     break
 
-        gpio.set_servo_pulsewidth(servoPIN2, dc2 + newPW)
-        time.sleep(10/1000)
+        newPW_final = dc2 + newPW
+        # if newPW_final > pan_max_pw:
+        #     newPW_final = pan_max_pw
+        # elif newPW_final < pan_min_pw:
+        #     newPW_final = pan_min_pw
+        gpio.set_servo_pulsewidth(servoPIN2, newPW_final)
+        print("theta", theta)
+        # time.sleep(10/1000)
         # Exit the loop when the error is close to zero (desired angle reached)
         if abs(errorAngle) < 1:
             gpio.set_servo_pulsewidth(servoPIN2, dc2)
@@ -220,4 +241,7 @@ try:
 except KeyboardInterrupt:
     # User pressed CTRL+C - cleanup GPIO and stop the program
     gpio.set_servo_pulsewidth(servoPIN1, 1500)
+    goToAngle(140) # 140 front, 320 back
     gpio.set_servo_pulsewidth(servoPIN2, 1500)
+    gpio.set_servo_pulsewidth(servoPIN1, 550)
+
